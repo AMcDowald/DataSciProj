@@ -1,4 +1,4 @@
-###WORKING
+###WORKING HW 3
 csv_file = '/home/amcdowald/Downloads/Data_file.csv'
 factor_data <-
   read.csv(
