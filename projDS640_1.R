@@ -1,3 +1,7 @@
+install.packages('dplyr') # Only have to run once.
+library(dplyr)
+library(reshape2)
+
 csv_file = '/home/amcdowald/Downloads/Data_file.csv'
 factor_data <-
   read.csv(
@@ -31,12 +35,28 @@ data_file_dates <- unique(test_df$calendardate)
 data_by_uniq_date <- vector()
 oneNaPerRow_cases <- vector()
 morethatonenaPerRow_cases <- vector()
+fit<-vector()
 
 for(date in seq(1:length(data_file_dates))){
   dtfi_name <- paste("dataByDate_",gsub('-','',data_file_dates[date]),sep='')
   assign(dtfi_name, subset(test_df, test_df$Date == as.Date(data_file_dates[date])))
   data_by_uniq_date <- c(data_by_uniq_date,dtfi_name)
 }
+#Get Coorelation list
+correlation_vec <- vector()
+for(dataframe in oneNaPerRow_cases ){
+  print(dataframe)
+  dtfi_name <- sprintf("Corr_%s",dataframe )
+  df.tmp <- get(dataframe)
+  lm_df <- df.tmp[5:ncol(df.tmp)]
+  d_cor <- as.matrix(cor(lm_df ))
+  d_cor_melt <- melt(d_cor)
+  melt_sub<- subset(d_cor_melt, value > .5 & value != 1)
+  assign(dtfi_name, melt_sub)
+  correlation_vec <- c(correlation_vec,dtfi_name)
+}
+
+
 #Keeping rows with no NA in the row.
 for(date in data_by_uniq_date){
   df = get(date)
@@ -59,11 +79,11 @@ for(date in data_by_uniq_date){
   morethatonenaPerRow_cases <- c(morethatonenaPerRow_cases,dtfi_name2)
 }
 
-View(get(oneNaPerRow_cases[1]))
-for(dataframe in oneNaPerRow_cases ){
-  print(get(dataframe))
-}
-fit<-vector()
+
+View(get(correlation_vec[1]))
+
+
+
 for(dataframe in oneNaPerRow_cases ){
   print(sprintf("DATAFRAME: %s", dataframe))
   df.tmp <- get(dataframe)
@@ -89,7 +109,42 @@ for(dataframe in oneNaPerRow_cases ){
   print(summary(fitO))
   fit<- c(fit,summary(fitO))
 }
+
+
+
+d_cor_melt <- arrange(melt(d_cor), -abs(value))
+
+css <- as.matrix(lm_df )
+rcorr(ccs, type="pearson")
+
 cor.test(training_set$Theft,training_set$Subway, method="pearson")
 plot(training_set$Theft,training_set$Subway)
 abline(lm(training_set$Theft~training_set$Subway), col="red")
 
+print(sprintf("DATAFRAME: %s", dataframe))
+
+ctable = table.Correlation(lm_df[1],lm_df[,2:ncol(lm_df),drop=FALSE], conf.level=.99)
+lm_df$invcap<-NULL
+
+which(d_cor > 0.15 & lower.tri(d_cor), arr.ind = T, useNames = F)
+
+
+subset(d_cor, value > .5)
+l <- apply(X=lm_df, MARGIN = 2, FUN = function(x) cor.test(x[2], x[6]))
+cor <-apply(lm_df, MARGIN = 1, FUN = function(x) return(cor.test(x[1:44], x[45:88])$estimate))
+
+
+lm_df$ln_returns
+
+l <- apply(d_cor,2, function(x) x >.5)
+df2 <- d_cor[l]
+sd <-subset(d_cor, value > .5)
+d_cor_melt <- arrange(melt(d_cor), -abs(value))
+lm_df[,2]
+df1 =lm_df[,2] #lm_df[,2:ncol(lm_df),drop=FALSE]
+df1 = as.numeric(df1[,1])
+cor.test(lm_df[,2],lm_df[,3])
+
+data(managers)
+table.Correlation(managers[,1:6],managers[,7:8])
+ctable = table.Correlation(managers[,1:6],managers[,8,drop=FALSE], conf.level=.99)
