@@ -1,6 +1,7 @@
 library(reshape)
 library(MASS)
 library(class)
+library(e1071)
 csv_file = '/home/amcdowald/wrksite/school/DS630/breastCancerData.csv'
 breast_cancer_data <-
   read.csv(
@@ -9,6 +10,7 @@ breast_cancer_data <-
     quote = "\"",
     header = TRUE
   )
+View(breast_cancer_data)
 #Creating Random Sample
 sample_number <- sample(100:400, 1, replace=FALSE)
 index <- sample(1:nrow(breast_cancer_data), sample_number)
@@ -28,35 +30,45 @@ for(data_f in names(data_vector_1)){
   melt_sub<- subset(melt, value > .9 & value != 1)
   print(melt_sub)
 }
-diag_as_numeric<-as.numeric(as.factor(training_data_set$Diagnosis))
-print(sprintf("Levels are %s=1 and %s=2",levels(training_data_set$Diagnosis)[1],levels(training_data_set$Diagnosis)[2]))
-melt = melt(cor(diag_as_numeric,training_data_set[3:32]))
-melt_sub<- subset(melt, value > .7 & value != 1)
-print(melt_sub)
+diag_as_numeric<-factor(breast_cancer_data$Diagnosis, levels=c("B","M"), labels=c("Benign","Malignant"))
+print(sprintf("Levels are %s=1 and %s=2",levels(breast_cancer_data$Diagnosis)[1],levels(breast_cancer_data$Diagnosis)[2]))
+scale_data <- scale(breast_cancer_data[3:32])
+melt <- melt(cor(scale_data))
+melt
+melt_sub <- subset(melt, value < -.9 | value > .9 & value != 1)
+melt_sub
+print(unique(melt_sub$X2))
 
 #MATRIX WITH STRONG CORRELATION
-corr_list <- as.vector(melt_sub[2]$X2)
-data_with_corr <-sapply(corr_list, function(name) {data_with_corr <- training_data_set[[name]]})
-data_with_corr <- cbind(training_data_set[1:2],data_with_corr)
+corr_list <- as.vector(unique(melt_sub$X2))
+data_with_corr <-sapply(corr_list, function(name) {data_with_corr <- breast_cancer_data[[name]]})
+data_with_corr <- cbind(breast_cancer_data[1:2],data_with_corr)
 
 #CREATE FORMULAS
 formula_1 <- as.formula(paste("data_with_corr$Diagnosis ~ ",paste("data_with_corr$",names(data_with_corr)[-c(1,2)], sep="",collapse ="+"),sep = ""))
 
 #RUN GLM
-glm_data <- glm(formula_1, data = data_with_corr,family=binomial())
+predict_glm <- data_with_corr
+glm_data <- glm(formula_1, data = predict_glm,family="binomial"(link="logit"))
+glm_data$predict<-predict(glm_data,training_data_set)$class
 summary(glm_data)
+predict_table<-table(predicted=glm_data$predict,Actual=glm_data$Diagnosis)
+Accuracy<-sum(diag(predict_table))/sum(predict_table)
+Accuracy
 
 #RUN LDA
 train <- sample(1:nrow(data_with_corr), 96)
-table(data_with_corr$Diagnosis[train])
 predict_lda <- data_with_corr
-data <- lda(formula_1, data = predict_lda , subset = train)
-predict_lda$predict<-predict(data, predict_lda)$class
+lda_data <- lda(formula_1, data = predict_lda , subset = train)
+predict_lda$predict<-predict(lda_data,training_data_set)$class
 abline(plot(predict_lda$predict,predict_lda$Diagnosis,
             xlab="predicted",ylab="actual"),a=0,b=1)
+linearfit<-lda(diag_re~.,prc_train)
+predict_table<-table(predicted=predict_lda$predict,Actual=predict_lda$Diagnosis)
+Accuracy<-sum(diag(predict_table))/sum(predict_table)
+Accuracy
 
-#knn inc
-#https://rstudio-pubs-static.s3.amazonaws.com/123438_3b9052ed40ec4cd2854b72d1aa154df9.html
+#RUN KNN
 train <- 1:100
 train_data <- data_with_corr[train,][3:8]
 test_data <- data_with_corr[-train,][3:8]
@@ -107,4 +119,25 @@ legend("bottomright",pch=c(1,16,2,17),bg=c(1,1,1,1),
 
 legend("topleft",fill=c(4,3,6,2),legend=c(1,2,3,4),
        title="installment %", horiz=TRUE,bty="n",col=grey(.7),cex=.8)
-#svm
+#RUN SVM
+old_Accuracy<-0
+for (kernal_type in c("polynomial","radial","linear","sigmoid")){
+  print(sprintf('%s and old accuracy=%s', kernal_type,old_Accuracy))
+  svm_data <- data_with_corr[-c(1)]
+  svm_model<- svm(svm_data$Diagnosis~.,kernel=sprintf('%s', kernal_type), data = svm_data)
+  print(svm_model)
+  svm_pred <- predict(svm_model,svm_data[-c(1)])
+  table(svm_pred,svm_data$Diagnosis)
+  svm_tune <- tune(svm, train.x=,svm_data[-c(1)], train.y=svm_data$Diagnosis, kernel=sprintf('%s', kernal_type),
+                   ranges=list(cost=10^(-1:2), gamma=c(.5,1,2)))
+  svm_model_tuned<- svm(svm_data$Diagnosis~.,data = svm_data, cost=svm_tune$best.parameters[1], gamma=svm_tune$best.parameters[2])
+  svm_pred_tuned <- predict(svm_model_tuned,svm_data[-c(1)])
+  predict_table<-table(svm_pred_tuned,svm_data$Diagnosis)
+  new_Accuracy<-sum(diag(predict_table))/sum(predict_table)
+  if(new_Accuracy > old_Accuracy){
+    sprintf("Better accuracy than %s, using cost=%s, gamma=%s and kernal=%s",old_Accuracy,svm_tune$best.parameters[1],svm_tune$best.parameters[2],kernal_type)
+    print(new_Accuracy)
+    old_Accuracy<-new_Accuracy
+  }
+}
+
