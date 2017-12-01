@@ -8,7 +8,8 @@ factor_data <-
     header = FALSE
   )
 colnames(factor_data) <- c("ticker","dimension","calendardate","datekey","reportperiod","accoci","assets","assetsavg","assetsc","assetsnc","assetturnover","bvps","capex","cashneq","cashnequsd","cor","currentratio","de","debt","debtusd","depamor","divyield","dps","ebit","ebitda","ebitdamargin","ebitdausd","ebitusd","ebt","eps","epsdil","epsusd","equity","equityavg","equityusd","ev","evebit","evebitda","fcf","fcfps","fxusd","gp","grossmargin","intangibles","intexp","invcap","invcapavg","inventory","liabilities","liabilitiesc","liabilitiesnc","marketcap","ncf","ncfcommon","ncfdebt","ncfdiv","ncff","ncfi","ncfo","ncfx","netinc","netinccmn","netinccmnusd","netincdis","netmargin","payables","payoutratio","pb","pe","pe1","prefdivis","price","ps","ps1","receivables","retearn","revenue","revenueusd","rnd","roa","roe","roic","ros","sgna","sharefactor","sharesbas","shareswa","shareswadil","sps","tangibles","taxexp","tbvps","workingcapital")
-
+x <- c("ticker","dimension","calendardate","datekey","reportperiod","accoci","assets","assetsavg","assetsc","assetsnc","assetturnover","bvps","capex","cashneq","cashnequsd","cor","currentratio","de","debt","debtusd","depamor","divyield","dps","ebit","ebitda","ebitdamargin","ebitdausd","ebitusd","ebt","eps","epsdil","epsusd","equity","equityavg","equityusd","ev","evebit","evebitda","fcf","fcfps","fxusd","gp","grossmargin","intangibles","intexp","invcap","invcapavg","inventory","liabilities","liabilitiesc","liabilitiesnc","marketcap","ncf","ncfcommon","ncfdebt","ncfdiv","ncff","ncfi","ncfo","ncfx","netinc","netinccmn","netinccmnusd","netincdis","netmargin","payables","payoutratio","pb","pe","pe1","prefdivis","price","ps","ps1","receivables","retearn","revenue","revenueusd","rnd","roa","roe","roic","ros","sgna","sharefactor","sharesbas","shareswa","shareswadil","sps","tangibles","taxexp","tbvps","workingcapital")
+length(x)
 View(factor_data)
 #extracting ARQ
 arq_data<- subset(factor_data, factor_data$dimension == 'ARQ')
@@ -29,6 +30,7 @@ indicator_df <- data.frame(ticker=arq_data$ticker, calendardate=arq_data$calenda
                            ebtusd=arq_data$ebitusd, netinc=arq_data$netinc, assetturnover=arq_data$assetturnover, currentratio=arq_data$currentratio, pe1=arq_data$pe1, roic=arq_data$roic, roa=arq_data$roa, de= arq_data$de,
                            ncfo=arq_data$ncfo, workingcapital=arq_data$workingcapital, sharesbas=arq_data$sharesbas, fcf=arq_data$fcf, grossmargin=arq_data$grossmargin,
                            ev=arq_data$ev, ebitusd=arq_data$ebitusd, liabilities=arq_data$liabilities, equityavg=arq_data$equityavg)
+indicator_df<-cbind(Log_Return=ln_returns,arq_data)
 #Removing -9999999 from ln_returns
 factor_data_reduced <- subset(indicator_df, is.finite(ln_returns) & ln_returns != 9999999)
 
@@ -60,7 +62,9 @@ fiveteen_datasets_by_date<-c('data_By_Date_20120630', 'data_By_Date_20150930','d
              'data_By_Date_20130630','data_By_Date_20130930','data_By_Date_20140331','data_By_Date_20140630',
              'data_By_Date_20130630','data_By_Date_20110930')
 #Linear model for All data sets
-for(data in data_by_uniq_date){
+vector_of_coef<- vector()
+t=1
+for(data in sort(data_by_uniq_date[0:15])){
   print(data)
   df.tmp <- get(data)
   formula<- vector()
@@ -70,9 +74,53 @@ for(data in data_by_uniq_date){
   form2 <- as.formula(paste("df.tmp$Log_Return ~ ",b,sep = ""))
   fitO <- lm(form2, na.action=na.omit)
   print(summary(fitO))
+  print(fitO$coefficients)
+  dtfi_name <- data#paste("t",t,sep='')
+  t=t+1
+  assign(dtfi_name, fitO$coefficients)
+  vector_of_coef <- c(vector_of_coef,dtfi_name)
 }
+
+x=stack(data.frame(cbind(t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15)))
+
+#y=as.data.frame(t(data.frame(as.list(sort(data_by_uniq_date[0:15])))))
+new=x[-c(12)]
+new=na.omit(new)
+arima(new[,1], order = c(13,0,2))
+plot(lm(new))
+
+model <- auto.arima(new[,1])
+
+
+plot(new[,1])
+View(new)
+x<-lm(new)
+summary(x)
+plot(x)
+
+
+
+
+###
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##Linear model for the 15 datasets
-for(data in fiveteen_datasets_by_date){
+vector_of_coef<- vector()
+t=1
+for(data in sort(fiveteen_datasets_by_date)){
   print(data)
   df.tmp <- get(data)
   formula<- vector()
@@ -81,5 +129,14 @@ for(data in fiveteen_datasets_by_date){
   b <- paste("df.tmp$",df, sep="",collapse ="+")
   form2 <- as.formula(paste("df.tmp$Log_Return ~ ",b,sep = ""))
   fitO <- lm(form2, na.action=na.omit)
-  print(summary(fitO))
+  
+  print(fitO$coefficients)
+  dtfi_name <- paste("t",t,sep='')
+  t=t+1
+  assign(dtfi_name, fitO$coefficients)
+  vector_of_coef <- c(vector_of_coef,dtfi_name)
 }
+
+x=data.frame(cbind(t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15))
+x=t(x)
+y=x[c(15)]
