@@ -85,7 +85,6 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
         return children
 
 
-
 @app.callback(dash.dependencies.Output('my-graph3', 'figure'),
               [dash.dependencies.Input('upload-image', 'contents')])
 def update_graph(contents):
